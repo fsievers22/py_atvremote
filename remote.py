@@ -12,34 +12,24 @@ import os
 import socket
 import ssl
 
+hostname = '127.0.0.1'
 
-def get_public_certificate() -> str:
 
-    """ context : SSL.Context = SSL.Context(SSL.TLS_CLIENT_METHOD)
-    s = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
-    #s.connect("localhost", 6467)
-    connection = SSL.Connection(context, s)
-    connection.connect(("localhost",6467))
-    connection.
-    test = connection.get_state_string() """
-    hostname = 'localhost'
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+def get_public_certificate() -> Tuple[str, str]:
+
     pub_cert = ssl.get_server_certificate(addr=(hostname, 6467))
     (priv_key, priv_cert) = generate_self_signed_certificate()
     write_certificate_to_disk(priv_key, pub_cert, priv_cert)
-    #with socket.create_connection((hostname, 6467)) as sock:
-    #with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-    #        print(ssock.version())
     return "Fertig"
 
 
 
 def generate_self_signed_certificate() -> Tuple[rsa.RSAPrivateKey, x509.Certificate]:
     #Generate an X.509 Certificate with the given Common Name.
-    cn = "home_assistant_remote"
+    cn = "atvremote"
     name = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, cn),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test")
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Google Inc.")
     ])
 
     private_key = rsa.generate_private_key(
@@ -83,10 +73,20 @@ def write_certificate_to_disk(private_key, pub_cert, priv_cert):
     with open("cert/pub_cert.pem", "w") as f:
         f.write(pub_cert)
 
+def pair_with_android_tv():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.load_verify_locations('cert/pub_cert.pem')
+    context.verify_mode = context.verify_mode.CERT_OPTIONAL
+    context.check_hostname = False
+    with socket.create_connection((hostname, 6467)) as sock:
+        with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+            print(ssock.version())
+
 
 def main() -> int:
 
-    print(get_public_certificate())
+    get_public_certificate()
+    pair_with_android_tv()
     
     return 0
 
