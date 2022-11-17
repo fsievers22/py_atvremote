@@ -1,4 +1,4 @@
-import proto.pairing_pb2 as pairing
+import pair.proto.pairing_pb2 as pairing
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes

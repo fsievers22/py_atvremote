@@ -1,7 +1,5 @@
 
-// pairingmessage.proto
 syntax = "proto3";
-package pairing;
 
 enum RoleType {
   ROLE_TYPE_UNKNOWN = 0;
