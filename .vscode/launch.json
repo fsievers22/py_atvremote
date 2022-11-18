@@ -8,9 +8,9 @@
             "name": "Python: AndroidTV remote",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/atvremote/app.py",
+            "program": "${workspaceFolder}/example.py",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": false
         }
     ]
 }
