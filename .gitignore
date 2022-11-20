@@ -6,3 +6,4 @@ telnet.exp
 compile_proto.sh
 __pycache__/
 .vscode/
+.venv/
