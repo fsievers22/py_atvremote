@@ -4,3 +4,5 @@ test/
 start_emulator.sh
 telnet.exp
 compile_proto.sh
+__pycache__/
+.vscode/
