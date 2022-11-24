@@ -2,6 +2,7 @@ import ssl
 import datetime
 import logging
 import os
+from typing import Callable
 from atvremote import messages
 from atvremote.proto import pairing_pb2 as pairing
 from atvremote.proto import commands_pb2 as commands
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class ATVRemote():
 
-    def __init__(self, hostname: str, receive_callback) -> None:
+    def __init__(self, hostname: str, receive_callback: Callable[[commands.RemoteMessage], None]) -> None:
         self.hostname = hostname
         self.receive_callback = receive_callback
         self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
@@ -48,7 +49,7 @@ class ATVRemote():
         with open("cert/client_cert.pem", "wb") as f:
             f.write(self.client_cert.public_bytes(serialization.Encoding.PEM))
 
-    async def pair(self) -> bool:
+    async def pair(self, input_code_callback: Callable[[None], str]) -> bool:
         #get_public_certificate()
         reader, writer = await asyncio.open_connection(self.hostname, self.pairing_port, ssl= self.context)
         socket: ssl.SSLSocket = writer.get_extra_info('ssl_object')
@@ -74,7 +75,7 @@ class ATVRemote():
             return False
         logging.info("Setting pairing configuration succesful")
 
-        code = input("Code:")
+        code = input_code_callback()
         logging.info("Sending pairing secret")
         status = await messages.PairingSecretMessage(self.server_cert, code).send(reader, writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
