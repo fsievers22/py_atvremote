@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class ATVRemote():
 
-    def __init__(self, hostname: str, receive_callback: Callable[[commands.RemoteMessage], None]) -> None:
+    def __init__(self, hostname: str, receive_callback: Callable[[commands.RemoteMessage], None] = None) -> None:
         self.hostname = hostname
         self.receive_callback = receive_callback
         self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
@@ -49,40 +49,41 @@ class ATVRemote():
         with open("cert/client_cert.pem", "wb") as f:
             f.write(self.client_cert.public_bytes(serialization.Encoding.PEM))
 
-    async def pair(self, input_code_callback: Callable[[None], str]) -> bool:
+    async def start_pairing(self) -> bool:
         #get_public_certificate()
-        reader, writer = await asyncio.open_connection(self.hostname, self.pairing_port, ssl= self.context)
-        socket: ssl.SSLSocket = writer.get_extra_info('ssl_object')
+        self.reader, self.writer = await asyncio.open_connection(self.hostname, self.pairing_port, ssl= self.context)
+        socket: ssl.SSLSocket = self.writer.get_extra_info('ssl_object')
         self.server_cert = socket.getpeercert(binary_form=True)
         logging.info("Sending pairing request")
-        status = await messages.PairingRequestMessage().send(reader, writer)
+        status = await messages.PairingRequestMessage().send(self.reader, self.writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
             logging.error(f"Pairing request failed with code {status}")
             return False
         logging.info("Pairing request succesful")
 
         logging.info("Sending pairing options")
-        status = await messages.PairingOptionsMessage().send(reader, writer)
+        status = await messages.PairingOptionsMessage().send(self.reader, self.writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
             logging.error(f"Setting pairing options failed with code {status}")
             return False
         logging.info("Setting pairing options succesful")
 
         logging.info("Sending pairing configuration")
-        status = await messages.PairingConfigurationMessage().send(reader, writer)
+        status = await messages.PairingConfigurationMessage().send(self.reader, self.writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
             logging.error(f"Setting pairing configuration failed with code {status}")
             return False
         logging.info("Setting pairing configuration succesful")
+        return True
 
-        code = input_code_callback()
+    async def finish_pairing(self, code: str) -> bool:
         logging.info("Sending pairing secret")
-        status = await messages.PairingSecretMessage(self.server_cert, code).send(reader, writer)
+        status = await messages.PairingSecretMessage(self.server_cert, code).send(self.reader, self.writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
             logging.error(f"Setting pairing secret failed with code {status}")
             return False
         logging.info("Setting pairing secret succesful")
-        writer.close()
+        self.writer.close()
         return True
             
 
