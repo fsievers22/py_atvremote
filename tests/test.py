@@ -12,7 +12,9 @@ def receive_from_atv(msg: messages.CommandMessage):
 async def main() -> int:
     logging.basicConfig(level=logging.DEBUG)
     atv_remote = atvremote.ATVRemote(hostname, receive_from_atv)
-    await atv_remote.pair()
+    await atv_remote.start_pairing()
+    code = input("Code: ")
+    await atv_remote.finish_pairing(code=code)
     print("paired")
     await atv_remote.connect()
     print("connected")

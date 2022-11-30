@@ -123,25 +123,18 @@ class PairingSecretMessage(PairingMessage):
         self.secret = PairingSecretMessage.calculate_secret(server_cert, code)
         self.message.pairing_secret.secret = self.secret
 
-    def calculate_secret(server_cert_data: bytes, code: str) -> bytes:
+    def calculate_secret(server_certificate: x509.Certificate, code: str) -> bytes:
 
         with open("cert/client_cert.pem", "rb") as f:
             data = f.read()
             client_cert = x509.load_pem_x509_certificate(data)
-
-        server_cert = x509.load_der_x509_certificate(server_cert_data)
         client_pub_key: rsa.RSAPublicKey = client_cert.public_key()
-        server_pub_key: rsa.RSAPublicKey = server_cert.public_key()
+        server_pub_key: rsa.RSAPublicKey = server_certificate.public_key()
     
         client_modulus = client_pub_key.public_numbers().n.to_bytes(256, 'big')
         client_exponent = client_pub_key.public_numbers().e.to_bytes(3, 'big')
         server_modulus = server_pub_key.public_numbers().n.to_bytes(256, 'big')
         server_exponent = server_pub_key.public_numbers().e.to_bytes(3, 'big')
-
-        logger.debug(client_modulus)
-        logger.debug(client_exponent)
-        logger.debug(server_modulus)
-        logger.debug(server_exponent)
 
         digest = hashes.Hash(hashes.SHA256())
         digest.update(client_modulus)
@@ -151,7 +144,7 @@ class PairingSecretMessage(PairingMessage):
 
         code_bin = bytes.fromhex(code[2:len(code)])
         logger.debug(code_bin)
-        logger.info(f"Sending code {code[2:len(code)]}")
+        logger.debug(f"Sending code {code[2:len(code)]}")
         digest.update(code_bin)
         hash = digest.finalize()
         logger.debug(len(hash))
