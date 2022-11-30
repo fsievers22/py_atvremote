@@ -20,9 +20,8 @@ logger = logging.getLogger(__name__)
 
 class ATVRemote():
 
-    def __init__(self, hostname: str, receive_callback: Callable[[commands.RemoteMessage], None] = None) -> None:
+    def __init__(self, hostname: str) -> None:
         self.hostname = hostname
-        self.receive_callback = receive_callback
         self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self.context.check_hostname = False
         self.context.verify_mode = ssl.CERT_NONE
@@ -152,7 +151,7 @@ class ATVRemote():
     async def key_press(self, key_code):
         await messages.KeypressMessage(key_code, commands.RemoteDirection.SHORT).send(self.writer)
 
-    async def listen_forever(self):
+    async def listen_forever(self, receive_callback: Callable[[commands.RemoteMessage], None] = None):
         while True:
             try:
                 msg = await messages.CommandMessage.receive_response(self.reader)
@@ -163,4 +162,4 @@ class ATVRemote():
             if msg.HasField('remote_ping_request'):
                 await messages.PingResponseMessage(msg.remote_ping_request.val1).send(self.writer)
             else:
-                self.receive_callback(msg)
+                receive_callback(msg)
