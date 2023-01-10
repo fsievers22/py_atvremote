@@ -1,5 +1,6 @@
 import ssl
 import datetime
+import time
 import logging
 import os
 from typing import Callable
@@ -15,6 +16,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes
+from atvremote.constants import APPS
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +32,15 @@ class ATVRemote():
         self.pairing_port = 6467
         self.connection_port = 6466
         self.mac_addr = None
+        self.listen_task = None
+        self.timeout_seconds = 30
+        self.activity = "Standby"
+        self.update_callback: Callable[[None], None] = None
 
     def load_client_certificate(self):
-        (self.private_key, self.client_cert) = self.generate_self_signed_certificate()
-        self.write_certificate_to_disk()
+        if not (os.path.isfile('cert/client_cert.pem') and os.path.isfile('cert/key.pem')):
+            (self.private_key, self.client_cert) = self.generate_self_signed_certificate()
+            self.write_certificate_to_disk()
         self.context.load_cert_chain('cert/client_cert.pem','cert/key.pem')
 
     def write_certificate_to_disk(self):
@@ -55,7 +62,7 @@ class ATVRemote():
         socket: ssl.SSLSocket = self.writer.get_extra_info('ssl_object')
         server_certificate_data = socket.getpeercert(binary_form=True)
         self.server_certificate = x509.load_der_x509_certificate(server_certificate_data)
-        self.unique_id = self.server_certificate.fingerprint(hashes.SHA1)
+        self.unique_id = self.server_certificate.fingerprint(hashes.SHA1())
         logging.info("Sending pairing request")
         status = await messages.PairingRequestMessage().send(self.reader, self.writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
@@ -134,32 +141,76 @@ class ATVRemote():
             await messages.SetActiveMessage().send(self.writer)
         except RuntimeError as exception:
             logger.exception("Error while establishing connection", exception)
-            self.writer.close()
+            self.disconnect()
             return False
         return True
 
-    async def disconnect(self):
+    def disconnect(self):
+        if self.listen_task != None and not self.listen_task.done():
+            self.listen_task.cancel()
         self.writer.close()
+
+    def update(self, message: commands.RemoteMessage):
+        if not message.HasField("remote_ime_key_inject"):
+            return
+        logger.info(message)
+        package = message.remote_ime_key_inject.app_info.app_package
+        self.activity = APPS.get(package, package)
+        self.update_callback()
+
+    def get_activity(self) -> str:
+        return self.activity
+
+
         
 
     async def key_down(self, key_code):
+        await self.ensure_connection()
         await messages.KeypressMessage(key_code, commands.RemoteDirection.START_LONG).send(self.writer)
 
     async def key_up(self, key_code):
+        await self.ensure_connection()
         await messages.KeypressMessage(key_code, commands.RemoteDirection.END_LONG).send(self.writer)
 
     async def key_press(self, key_code):
+        await self.ensure_connection()
         await messages.KeypressMessage(key_code, commands.RemoteDirection.SHORT).send(self.writer)
 
-    async def listen_forever(self, receive_callback: Callable[[commands.RemoteMessage], None] = None):
+    async def listen_forever(self):
+        self.last_ping = time.time()
         while True:
             try:
-                msg = await messages.CommandMessage.receive_response(self.reader)
+                msg = await asyncio.wait_for(messages.CommandMessage.receive_response(self.reader), self.timeout_seconds)
             except RuntimeError as exception:
                 logger.exception("Error in atv-remote communication", exception)
-                self.writer.close()
-                raise
+                self.disconnect()
+                return
+            except TimeoutError as exception:
+                logger.exception(f"No response in more than {self.timeout_seconds} seconds", exception)
+                self.disconnect()
+                return
             if msg.HasField('remote_ping_request'):
                 await messages.PingResponseMessage(msg.remote_ping_request.val1).send(self.writer)
+                self.last_ping = time.time()
             else:
-                receive_callback(msg)
+                if time.time() - self.last_ping > self.timeout_seconds:
+                    logger.exception(f"No ping response in more than {self.timeout_seconds} seconds")
+                    self.disconnect()
+                    return
+                self.update(msg)
+
+    async def ensure_connection(self):
+        if not self.listen_task.done():
+            return
+        await self.reestablish_connection()
+
+    async def reestablish_connection(self):
+        if not await self.connect():
+            return
+        self.listen_task = asyncio.create_task(self.listen_forever())
+
+    async def establish_connection(self, update_callback: Callable[[None], None], timeout_seconds: int = 30):
+        self.timeout_seconds = timeout_seconds
+        self.update_callback = update_callback
+        await self.reestablish_connection()
+        

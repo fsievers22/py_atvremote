@@ -9,15 +9,15 @@ addopts = [
 
 [project]
 name = "atvremote"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
   "cryptography",
   "protobuf"
 ]
 authors = [
-  { name="Example Author", email="author@example.com" },
+  { name="Fabian Sievers", email="41748817+fsievers22@users.noreply.github.com" },
 ]
-description = "A small example package"
+description = "Package to connect to an AndroidTV through the google remote sdk v2"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -27,5 +27,5 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://github.com/fsievers22/atvremote"
+"Bug Tracker" = "https://github.com/fsievers22/atvremote/issues"
