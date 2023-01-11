@@ -24,10 +24,7 @@ class ATVRemote():
 
     def __init__(self, hostname: str) -> None:
         self.hostname = hostname
-        self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-        self.context.check_hostname = False
-        self.context.verify_mode = ssl.CERT_NONE
-        self.load_client_certificate()
+        
         self.hostname = hostname
         self.pairing_port = 6467
         self.connection_port = 6466
@@ -37,27 +34,35 @@ class ATVRemote():
         self.update_callback: Callable[[None], None] = None
         self.device_info: commands.RemoteDeviceInfo = None
 
-    def load_client_certificate(self):
-        if not (os.path.isfile('cert/client_cert.pem') and os.path.isfile('cert/key.pem')):
-            (self.private_key, self.client_cert) = self.generate_self_signed_certificate()
-            self.write_certificate_to_disk()
-        self.context.load_cert_chain('cert/client_cert.pem','cert/key.pem')
+    def create_context()-> ssl.SSLContext:
+        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        ATVRemote.load_client_certificate(context)
+        return context
 
-    def write_certificate_to_disk(self):
+    def load_client_certificate(context: ssl.SSLContext):
+        if not (os.path.isfile('cert/client_cert.pem') and os.path.isfile('cert/key.pem')):
+            (private_key, client_cert) = ATVRemote.generate_self_signed_certificate()
+            ATVRemote.write_certificate_to_disk(private_key, client_cert)
+        context.load_cert_chain('cert/client_cert.pem','cert/key.pem')
+
+    def write_certificate_to_disk(private_key, client_cert):
         os.makedirs("cert", exist_ok=True)
         # Write our key to disk for safe keeping
         with open("cert/key.pem", "wb") as f:
-            f.write(self.private_key.private_bytes(
+            f.write(private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption(),
             ))
         # Write our certificate out to disk.
         with open("cert/client_cert.pem", "wb") as f:
-            f.write(self.client_cert.public_bytes(serialization.Encoding.PEM))
+            f.write(client_cert.public_bytes(serialization.Encoding.PEM))
 
     async def start_pairing(self) -> bool:
-        self.reader, self.writer = await asyncio.open_connection(self.hostname, self.pairing_port, ssl= self.context)
+        context = ATVRemote.create_context()
+        self.reader, self.writer = await asyncio.open_connection(self.hostname, self.pairing_port, ssl= context)
         socket: ssl.SSLSocket = self.writer.get_extra_info('ssl_object')
         server_certificate_data = socket.getpeercert(binary_form=True)
         self.server_certificate = x509.load_der_x509_certificate(server_certificate_data)
@@ -96,7 +101,7 @@ class ATVRemote():
         return True
             
 
-    def generate_self_signed_certificate(self) -> Tuple[rsa.RSAPrivateKey, x509.Certificate]:
+    def generate_self_signed_certificate() -> Tuple[rsa.RSAPrivateKey, x509.Certificate]:
         #Generate an X.509 Certificate with the given Common Name.
         logging.info("Generating new client certificate")
         cn = "atvremote"
@@ -131,8 +136,9 @@ class ATVRemote():
         return private_key, certificate
 
     async def connect(self) -> bool:
-        self.context.load_cert_chain('cert/client_cert.pem','cert/key.pem')
-        self.reader, self.writer = await asyncio.open_connection(self.hostname, self.connection_port, ssl=self.context)
+
+        context = ATVRemote.create_context()
+        self.reader, self.writer = await asyncio.open_connection(self.hostname, self.connection_port, ssl=context)
         logger.debug("Connected to android tv")
         try:
             config_message = await messages.CommandMessage.receive_response(self.reader)
