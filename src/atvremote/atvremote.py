@@ -31,7 +31,6 @@ class ATVRemote():
         self.hostname = hostname
         self.pairing_port = 6467
         self.connection_port = 6466
-        self.mac_addr = None
         self.listen_task = None
         self.timeout_seconds = 30
         self.activity = "Standby"
@@ -59,11 +58,10 @@ class ATVRemote():
 
     async def start_pairing(self) -> bool:
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.pairing_port, ssl= self.context)
-        self.mac_addr = self.writer.get_extra_info("peername")
         socket: ssl.SSLSocket = self.writer.get_extra_info('ssl_object')
         server_certificate_data = socket.getpeercert(binary_form=True)
         self.server_certificate = x509.load_der_x509_certificate(server_certificate_data)
-        self.unique_id = self.server_certificate.fingerprint(hashes.SHA1())
+        self.unique_id = self.server_certificate.fingerprint(hashes.SHA1()).hex()
         logging.info("Sending pairing request")
         status = await messages.PairingRequestMessage().send(self.reader, self.writer)
         if status != pairing.PairingMessage.Status.STATUS_OK:
@@ -89,6 +87,7 @@ class ATVRemote():
     async def finish_pairing(self, code: str) -> bool:
         logging.info("Sending pairing secret")
         status = await messages.PairingSecretMessage(self.server_certificate, code).send(self.reader, self.writer)
+        self.server_certificate = None
         if status != pairing.PairingMessage.Status.STATUS_OK:
             logging.error(f"Setting pairing secret failed with code {status}")
             return False
