@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 class ATVRemote():
 
-    def __init__(self, hostname: str) -> None:
+    def __init__(self, hostname: str, unique_id: str=None) -> None:
         self.hostname = hostname
-        
+        self.unique_id = unique_id
         self.hostname = hostname
         self.pairing_port = 6467
         self.connection_port = 6466
@@ -139,10 +139,6 @@ class ATVRemote():
 
         context = ATVRemote.create_context()
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.connection_port, ssl=context)
-        socket: ssl.SSLSocket = self.writer.get_extra_info('ssl_object')
-        server_certificate_data = socket.getpeercert(binary_form=True)
-        server_certificate = x509.load_der_x509_certificate(server_certificate_data)
-        self.unique_id = server_certificate.fingerprint(hashes.SHA1()).hex()
         logger.debug("Connected to android tv")
         try:
             config_message = await messages.CommandMessage.receive_response(self.reader)
