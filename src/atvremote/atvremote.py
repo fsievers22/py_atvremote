@@ -36,6 +36,7 @@ class ATVRemote():
         self.timeout_seconds = 30
         self.activity = "Standby"
         self.update_callback: Callable[[None], None] = None
+        self.device_info: commands.RemoteDeviceInfo = None
 
     def load_client_certificate(self):
         if not (os.path.isfile('cert/client_cert.pem') and os.path.isfile('cert/key.pem')):
@@ -135,7 +136,8 @@ class ATVRemote():
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.connection_port, ssl=self.context)
         logger.debug("Connected to android tv")
         try:
-            await messages.CommandMessage.receive_response(self.reader)
+            config_message = await messages.CommandMessage.receive_response(self.reader)
+            self.device_info = config_message.remote_configure.device_info
             await messages.ConfigurationMessage().send(self.writer)
             await messages.CommandMessage.receive_response(self.reader)
             await messages.SetActiveMessage().send(self.writer)
