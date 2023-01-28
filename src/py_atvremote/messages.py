@@ -1,5 +1,5 @@
-from atvremote.proto import commands_pb2 as commands
-from atvremote.proto import pairing_pb2 as pairing
+from py_atvremote.proto import commands_pb2 as commands
+from py_atvremote.proto import pairing_pb2 as pairing
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes

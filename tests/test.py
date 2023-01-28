@@ -1,11 +1,11 @@
-from atvremote import atvremote
-from atvremote import messages
+from py_atvremote import py_atvremote
+from py_atvremote import messages
 import logging
 import asyncio
 import sys
 
 hostname = "localhost"
-atv_remote: atvremote.ATVRemote = None
+atv_remote: py_atvremote.ATVRemote = None
 activiy = None
 
 def receive_from_atv(msg: messages.CommandMessage):
@@ -14,7 +14,7 @@ def receive_from_atv(msg: messages.CommandMessage):
 async def main() -> int:
     logging.basicConfig(level=logging.DEBUG)
     global atv_remote 
-    atv_remote = atvremote.ATVRemote(hostname)
+    atv_remote = py_atvremote.ATVRemote(hostname)
     #await atv_remote.start_pairing()
     #code = input("Code: ")
     #await atv_remote.finish_pairing(code=code)

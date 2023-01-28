@@ -4,9 +4,9 @@ import time
 import logging
 import os
 from typing import Callable
-from atvremote import messages
-from atvremote.proto import pairing_pb2 as pairing
-from atvremote.proto import commands_pb2 as commands
+from py_atvremote import messages
+from py_atvremote.proto import pairing_pb2 as pairing
+from py_atvremote.proto import commands_pb2 as commands
 import asyncio
 from typing import Tuple
 from cryptography import x509
@@ -16,7 +16,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes
-from atvremote.constants import APPS
+from py_atvremote.constants import APPS
 
 logger = logging.getLogger(__name__)
 
